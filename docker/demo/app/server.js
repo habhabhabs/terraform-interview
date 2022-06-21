@@ -11,7 +11,9 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 
 app.get('/', function (req, res) {
-    res.sendFile(path.join(__dirname, "index.html"));
+    res.json({ status: 'OK' });
+    // res.sendFile(path.join(__dirname, "index.html"));
+    // res.sendStatus(200);
   });
 
 app.get('/profile-picture', function (req, res) {
@@ -72,6 +74,6 @@ app.get('/get-profile', function (req, res) {
   });
 });
 
-app.listen(80, function () {
-  console.log("app listening on port 80!");
+app.listen(8080, function () {
+  console.log("app listening on port 8080!");
 });
