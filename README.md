@@ -1,1 +1,0 @@
-# htx-terraform-interview
