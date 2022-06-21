@@ -1,3 +1,5 @@
+data "azurerm_client_config" "current" {}
+
 # host persistent docker container storages
 resource "azurerm_storage_account" "this" {
   name                     = "alexinterviewstorage"
@@ -7,46 +9,61 @@ resource "azurerm_storage_account" "this" {
   account_replication_type = "LRS"
 }
 
-resource "azurerm_storage_share" "this" {
-  name                 = "docker-container-share"
+resource "azurerm_storage_share" "mongo-data" {
+  name                 = "mongo-data"
   storage_account_name = azurerm_storage_account.this.name
   quota                = 50 # in GB
 }
 
 # group of containers - lamp stack
 resource "azurerm_container_group" "this" {
-  name                = "example-continst"
+  name                = "alex-interview-lampstack"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
-  ip_address_type     = "Private"
+  ip_address_type     = "Public"
   os_type             = "Linux"
 
   container {
-    name   = "hello-world"
-    image  = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
-    cpu    = "0.5"
-    memory = "1.5"
+    name   = "mongodb"
+    image  = "mongo:latest"
+    cpu    = "2"
+    memory = "16"
 
     ports {
-      port     = 80
+      port     = 27017
       protocol = "TCP"
     }
 
     volume {
-      name = "hello-world-volume"
-      mount_path = "/hello-world-volume/"
-      share_name = azurerm_storage_share.this.name
+      name = "mongo-data"
+      mount_path = "/data/db"
+      share_name = azurerm_storage_share.mongo-data.name
       storage_account_name = azurerm_storage_account.this.name
       storage_account_key = azurerm_storage_account.this.primary_access_key
     }
 
+    secure_environment_variables = {
+      MONGO_INITDB_ROOT_USERNAME = "admin"
+      MONGO_INITDB_ROOT_PASSWORD = random_password.mongodb.result
+    }
   }
 
   container {
-    name   = "sidecar"
-    image  = "mcr.microsoft.com/azuredocs/aci-tutorial-sidecar"
+    name   = "mongodb-express"
+    image  = "mongo-express:latest"
     cpu    = "0.5"
     memory = "1.5"
+
+    ports {
+      port     = 8081
+      protocol = "TCP"
+    }
+
+    secure_environment_variables = {
+      ME_CONFIG_MONGODB_ADMINUSERNAME = "admin"
+      ME_CONFIG_MONGODB_ADMINPASSWORD = random_password.mongodb.result
+      ME_CONFIG_MONGODB_SERVER = "mongodb://admin:${random_password.mongodb.result}@localhost:27017"
+    }
 
     # volume
   }
