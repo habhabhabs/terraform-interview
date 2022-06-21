@@ -1,74 +1,75 @@
 data "azurerm_client_config" "current" {}
 
-# host persistent docker container storages
-resource "azurerm_storage_account" "this" {
-  name                     = "alexinterviewstorage"
-  resource_group_name      = azurerm_resource_group.this.name
-  location                 = azurerm_resource_group.this.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-}
+# database
+resource "azurerm_cosmosdb_account" "mongo" {
+  name                = "alex-interview-mongo"
+  location            = azurerm_resource_group.this.location
+  resource_group_name = azurerm_resource_group.this.name
+  offer_type          = "Standard"
+  kind                = "MongoDB"
 
-resource "azurerm_storage_share" "mongo-data" {
-  name                 = "mongo-data"
-  storage_account_name = azurerm_storage_account.this.name
-  quota                = 50 # in GB
+  enable_automatic_failover = true
+
+  capabilities {
+    name = "EnableAggregationPipeline"
+  }
+
+  capabilities {
+    name = "mongoEnableDocLevelTTL"
+  }
+
+  capabilities {
+    name = "MongoDBv3.4"
+  }
+
+  capabilities {
+    name = "EnableMongo"
+  }
+
+  consistency_policy {
+    consistency_level       = "BoundedStaleness"
+    max_interval_in_seconds = 300
+    max_staleness_prefix    = 100000
+  }
+
+  geo_location {
+    location          = "Central US"
+    failover_priority = 1
+  }
+
+  geo_location {
+    location          = "East US"
+    failover_priority = 0
+  }
 }
 
 # group of containers - lamp stack
-resource "azurerm_container_group" "this" {
-  name                = "alex-interview-lampstack"
+resource "azurerm_container_group" "this_backend_frontend" {
+  name                = "alex-interview-backend-${count.index}"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
-  ip_address_type     = "Public"
+  ip_address_type     = "Private"
   os_type             = "Linux"
+  count               = 2
 
   container {
-    name   = "mongodb"
-    image  = "mongo:latest"
+    name   = "alex-interview"
+    image  = "habhabhabs/alex-interview:${var.container_version_num}"
     cpu    = "2"
     memory = "16"
 
     ports {
-      port     = 27017
-      protocol = "TCP"
-    }
-
-    volume {
-      name = "mongo-data"
-      mount_path = "/data/db"
-      share_name = azurerm_storage_share.mongo-data.name
-      storage_account_name = azurerm_storage_account.this.name
-      storage_account_key = azurerm_storage_account.this.primary_access_key
-    }
-
-    secure_environment_variables = {
-      MONGO_INITDB_ROOT_USERNAME = "admin"
-      MONGO_INITDB_ROOT_PASSWORD = random_password.mongodb.result
-    }
-  }
-
-  container {
-    name   = "mongodb-express"
-    image  = "mongo-express:latest"
-    cpu    = "0.5"
-    memory = "1.5"
-
-    ports {
-      port     = 8081
+      port     = 80
       protocol = "TCP"
     }
 
     secure_environment_variables = {
-      ME_CONFIG_MONGODB_ADMINUSERNAME = "admin"
-      ME_CONFIG_MONGODB_ADMINPASSWORD = random_password.mongodb.result
-      ME_CONFIG_MONGODB_SERVER = "mongodb://admin:${random_password.mongodb.result}@localhost:27017"
+      MONGODB_CONN_STRING = azurerm_cosmosdb_account.mongo.connection_strings[0]
     }
-
-    # volume
   }
 
   tags = {
     environment = "testing"
   }
 }
+
