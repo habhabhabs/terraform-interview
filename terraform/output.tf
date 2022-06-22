@@ -7,3 +7,7 @@ output "mongodb_endpoint" {
   value     = azurerm_cosmosdb_account.mongo.endpoint
   sensitive = true
 }
+
+output "appgateway_lb_endpoint" {
+  value = azurerm_public_ip.lb.ip_address
+}
