@@ -11,10 +11,14 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 
 app.get('/', function (req, res) {
-    res.json({ status: 'OK' });
-    // res.sendFile(path.join(__dirname, "index.html"));
-    // res.sendStatus(200);
-  });
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+const instance_info = `this is ${process.env.INSTANCE_VALUE} instance on profile-SED_VERSION_NUM`
+
+app.get('/health', function (req, res) {
+  res.json({ info: instance_info });
+});
 
 app.get('/profile-picture', function (req, res) {
   let img = fs.readFileSync(path.join(__dirname, "images/profile-SED_VERSION_NUM.jpg"));

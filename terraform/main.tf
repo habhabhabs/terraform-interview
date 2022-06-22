@@ -44,18 +44,18 @@ resource "azurerm_cosmosdb_account" "mongo" {
 }
 
 # stateless backend-frontend instance
-resource "azurerm_container_group" "backend_frontend" {
-  name                = "alex-interview-backend-instance-${count.index}"
+resource "azurerm_container_group" "backend_frontend_primary" {
+  name                = "alex-interview-backend-instance-primary"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
   ip_address_type     = "Private"
   os_type             = "Linux"
-  count               = 2
   network_profile_id  = azurerm_network_profile.container_vnet_network_profile.id
 
   container {
     name   = "alex-interview"
-    image  = "habhabhabs/alex-interview:${var.container_version_num}"
+    # image  = "habhabhabs/alex-interview:${var.container_version_num}" # for redundancy concept
+    image  = "habhabhabs/alex-interview:1.0" # for blue-green deployment concept
     cpu    = "2"
     memory = "16"
 
@@ -67,10 +67,48 @@ resource "azurerm_container_group" "backend_frontend" {
     secure_environment_variables = {
       MONGODB_CONN_STRING = azurerm_cosmosdb_account.mongo.connection_strings[0]
     }
+
+    environment_variables = {
+      INSTANCE_VALUE = "Primary"
+    }
   }
 
   tags = {
-    environment = "testing"
+    environment = "testing-primary"
+  }
+}
+
+resource "azurerm_container_group" "backend_frontend_secondary" {
+  name                = "alex-interview-backend-instance-secondary"
+  location            = azurerm_resource_group.this.location
+  resource_group_name = azurerm_resource_group.this.name
+  ip_address_type     = "Private"
+  os_type             = "Linux"
+  network_profile_id  = azurerm_network_profile.container_vnet_network_profile.id
+
+  container {
+    name   = "alex-interview"
+    # image  = "habhabhabs/alex-interview:${var.container_version_num}" # for redundancy concept
+    image  = "habhabhabs/alex-interview:2.0" # for blue-green deployment concept
+    cpu    = "2"
+    memory = "16"
+
+    ports {
+      port     = 8080
+      protocol = "TCP"
+    }
+
+    secure_environment_variables = {
+      MONGODB_CONN_STRING = azurerm_cosmosdb_account.mongo.connection_strings[1]
+    }
+
+    environment_variables = {
+      INSTANCE_VALUE = "Secondary"
+    }
+  }
+
+  tags = {
+    environment = "testing-secondary"
   }
 }
 
@@ -99,7 +137,7 @@ resource "azurerm_application_gateway" "load_balancer" {
 
   gateway_ip_configuration {
     name      = "alex-interview-appgateway-lb-gateway-ip-configuration"
-    subnet_id = azurerm_subnet.lb-vnet-frontend.id
+    subnet_id = azurerm_subnet.container_vnet_lb_subnet.id
   }
 
   frontend_port {
@@ -114,7 +152,7 @@ resource "azurerm_application_gateway" "load_balancer" {
 
   backend_address_pool {
     name = local.backend_address_pool_name
-    ip_addresses = azurerm_container_group.backend_frontend[*].ip_address
+    ip_addresses = [azurerm_container_group.backend_frontend_primary.ip_address, azurerm_container_group.backend_frontend_secondary.ip_address]
   }
 
   backend_http_settings {

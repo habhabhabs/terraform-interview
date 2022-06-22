@@ -1,25 +1,3 @@
-# private network - load balancer
-resource "azurerm_virtual_network" "lb_vnet" {
-  name                = "alex-interview-lb-vnet"
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
-  address_space       = ["10.254.0.0/16"]
-}
-
-resource "azurerm_subnet" "lb-vnet-frontend" {
-  name                 = "alex-interview-lb-vnet-subnet-frontend"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.lb_vnet.name
-  address_prefixes     = ["10.254.0.0/24"]
-}
-
-resource "azurerm_subnet" "lb-vnet-backend" {
-  name                 = "alex-interview-lb-vnet-subnet-backend"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.lb_vnet.name
-  address_prefixes     = ["10.254.2.0/24"]
-}
-
 resource "azurerm_public_ip" "lb" {
   name                = "alex-interview-lb-public-ip"
   resource_group_name = azurerm_resource_group.this.name
@@ -51,6 +29,13 @@ resource "azurerm_subnet" "container_vnet_subnet" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
     }
   }
+}
+
+resource "azurerm_subnet" "container_vnet_lb_subnet" {
+  name                 = "alex-interview-container-vnet-lb-subnet"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.container_vnet.name
+  address_prefixes     = ["10.1.1.0/24"]
 }
 
 resource "azurerm_network_profile" "container_vnet_network_profile" {
