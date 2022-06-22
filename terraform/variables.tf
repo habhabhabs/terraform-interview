@@ -4,6 +4,6 @@ variable "subscription_id" {
 }
 
 variable "container_version_num" {
-  description = "two options: only 1.0 or 2.0"
+  description = "four options: blue-green: (input ignored), redundancy mode: only latest, 1.0 or 2.0"
   type        = string
 }
